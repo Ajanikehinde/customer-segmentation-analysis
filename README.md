@@ -1,130 +1,191 @@
 # Customer Segmentation Analysis
 
-K-Means clustering on 350 e-commerce customers, comparing four modeling approaches and profiling the resulting segments — with an explicit check for a data-quality issue that undermines most of the "behavioural" story the segments appear to tell.
+A K-Means customer segmentation project using **350 e-commerce customers**, comparing multiple clustering strategies and evaluating whether the resulting segments represent genuine customer behaviour or underlying data structure.
 
-**Read the [Key Caveat](#key-caveat-most-of-this-is-city-not-behaviour) section before using any conclusion from this project in a real decision.**
+> **Key finding:** The final clustering achieves a silhouette score of **0.7139**, but further analysis shows that most of the apparent segmentation is strongly associated with **City** and City-linked variables. This is an important data-quality finding and should be considered before using the segments for business decisions.
 
-## Contents
+## Project Overview
 
-```
-.
-├── Customer_Segmentation_corrected.ipynb   # main analysis notebook
-├── data/
-│   └── E-commerce_Customer_Behavior.csv    # source dataset (350 rows, 11 columns)
-└── README.md
-```
+This project demonstrates an end-to-end customer segmentation workflow:
+
+* Data cleaning and quality checks
+* Exploratory data analysis
+* Feature preprocessing and standardisation
+* K-Means clustering
+* Silhouette-based model selection
+* Customer segment profiling
+* Comparative model evaluation
+* Data-quality and confounding analysis
+* Business-oriented interpretation of customer segments
+
+The analysis compares three feature configurations against a baseline model before selecting the final numerical-only clustering approach.
 
 ## Dataset
 
-`E-commerce_Customer_Behavior.csv` — 350 customers, 11 columns:
+`E-commerce_Customer_Behavior.csv` contains **350 customers and 11 variables**.
 
-| Column | Type | Notes |
-|---|---|---|
-| Customer ID | int | dropped before modeling |
-| Gender | categorical | Female / Male |
-| Age | numeric | |
-| City | categorical | 6 cities |
-| Membership Type | categorical | Bronze / Silver / Gold |
-| Total Spend | numeric | |
-| Items Purchased | numeric | |
-| Average Rating | numeric | |
-| Discount Applied | boolean | |
-| Days Since Last Purchase | numeric | used as a recency signal |
-| Satisfaction Level | categorical | Unsatisfied / Neutral / Satisfied — 2 missing values, imputed with the mode |
+| Column                   | Type        | Description                          |
+| ------------------------ | ----------- | ------------------------------------ |
+| Customer ID              | Integer     | Identifier; removed before modelling |
+| Gender                   | Categorical | Female / Male                        |
+| Age                      | Numeric     | Customer age                         |
+| City                     | Categorical | Customer city                        |
+| Membership Type          | Categorical | Bronze / Silver / Gold               |
+| Total Spend              | Numeric     | Customer spending                    |
+| Items Purchased          | Numeric     | Number of items purchased            |
+| Average Rating           | Numeric     | Average customer rating              |
+| Discount Applied         | Boolean     | Whether a discount was applied       |
+| Days Since Last Purchase | Numeric     | Recency indicator                    |
+| Satisfaction Level       | Categorical | Unsatisfied / Neutral / Satisfied    |
 
-No duplicate rows.
+The dataset contained **2 missing values in `Satisfaction Level`**, which were imputed using the column mode. No duplicate rows were identified.
 
 ## Methodology
 
-The notebook is organized into the following sections:
+### 1. Data Cleaning
 
-1. **Data Loading & Cleaning** — load, check dtypes/nulls/duplicates, impute the 2 missing `Satisfaction Level` values, drop `Customer ID`.
-2. **Exploratory Data Analysis** — distributions, correlations, categorical breakdowns.
-3. **Baseline K-Means Clustering** — standardize the 5 numeric features, fit `K=4` (chosen by eye from the elbow curve) as a naive reference point.
-4. **Improved Clustering Methodology** — three feature configurations, each evaluated across `K = 2..10` and selected by max silhouette score:
-   - **Full-feature**: 5 numeric + one-hot-encoded categoricals
-   - **Behaviour-focused**: full-feature minus `City`
-   - **Numerical-only**: the 5 numeric features alone
-5. **Final Model** — the numerical-only configuration is selected, profiled, and its 7 clusters are assigned descriptive business labels.
-   - **5a. Checking for a City Confound** — tests whether the numeric features are actually independent of `City`. (They aren't — see below.)
-6. **Segment Comparison Visualisations** — bar charts and cross-tabs across the 7 final segments.
-7. **Additional Bivariate Relationships** — supplementary scatter plots.
+* Loaded and inspected the dataset
+* Checked data types, missing values and duplicates
+* Imputed the two missing satisfaction values
+* Removed `Customer ID` before modelling
 
-### Model comparison
+### 2. Exploratory Data Analysis
 
-| Model | Feature set | Selected K | Silhouette score |
-|---|---|---|---|
-| Baseline | 5 numeric (standardized) | 4 *(fixed, not optimized)* | 0.5626 |
-| Full-feature | numeric + one-hot categoricals | 7 | 0.8029 |
-| Behaviour-focused | full-feature minus `City` | 8 | 0.7831 |
-| **Numerical-only (final model)** | 5 numeric only | **7** | **0.7139** |
+The notebook examines:
 
-`K` for every non-baseline model is chosen by `argmax` on silhouette score — not hand-picked.
+* Numerical feature distributions
+* Correlations between variables
+* Categorical feature distributions
+* Customer behaviour across demographic and purchasing variables
 
-## Results: the 7 customer segments
+### 3. Baseline K-Means
 
-Numerical-only K-Means, `K=7`, ordered by average `Total Spend`:
+A baseline model was created using the five numerical variables:
 
-| Segment | Cluster ID | Size | Age | Total Spend | Items Purchased | Avg. Rating | Days Since Last Purchase | Primary City | Membership | Satisfaction |
-|---|---|---|---|---|---|---|---|---|---|---|
-| High-Value Engaged Customers | 2 | 58 (16.6%) | 29.1 | $1,459.77 | 20.0 | 4.81 | 11.2 | San Francisco | Gold | Satisfied |
-| High-Value Satisfied Customers | 5 | 59 (16.9%) | 30.7 | $1,165.04 | 15.3 | 4.54 | 24.6 | New York | Gold | Satisfied |
-| Active Mid-Value Customers | 1 | 59 (16.9%) | 34.1 | $805.49 | 11.7 | 4.17 | 15.3 | Los Angeles | Silver | Neutral |
-| At-Risk Average-Value Customers | 3 | 34 (9.7%) | 26.8 | $703.69 | 12.8 | 4.02 | 53.2 | Miami | Silver | Unsatisfied |
-| Low-Value At-Risk Customers | 6 | 24 (6.9%) | 32.0 | $671.55 | 10.0 | 3.80 | 34.6 | Miami | Silver | Unsatisfied |
-| Low-Value Inactive Customers | 4 | 58 (16.6%) | 42.0 | $499.88 | 9.4 | 3.46 | 40.5 | Chicago | Bronze | Unsatisfied |
-| Low-Value Neutral Customers | 0 | 58 (16.6%) | 36.7 | $446.89 | 7.6 | 3.19 | 22.8 | Houston | Bronze | Neutral |
+* Age
+* Total Spend
+* Items Purchased
+* Average Rating
+* Days Since Last Purchase
 
-*"At-Risk Average-Value Customers" (cluster 3) has the highest `Days Since Last Purchase` of all seven segments (53.2 days vs. an overall mean of 26.6) and below-average spend — this label was corrected from an earlier, self-contradicting draft that called this group "Active."*
+The variables were standardised using `StandardScaler`.
 
-## Key caveat: most of this is City, not behaviour
+A fixed **K=4** was used as a simple reference model based on visual inspection of the elbow curve.
 
-Section 5a of the notebook checks something the silhouette scores above should have raised on their own: **0.71–0.80 is an unusually high silhouette score for real customer behavioural data.** The check finds why:
+**Baseline silhouette score: 0.5626**
 
-- `Total Spend`, `Items Purchased`, and `Average Rating` fall into **non-overlapping numeric bands by `City`**, with real gaps between cities (e.g. `Total Spend` jumps from a max of $530 in the Bronze-tier cities straight to a min of $660 in the next tier — no real, continuously-distributed customer population looks like that).
-- `Membership Type` is a **deterministic function of `City`**, with zero exceptions across all 350 rows.
-- Of the 7 final segments, **6 map exactly one-to-one onto a `City` × `Membership Type` × `Discount Applied` combination.** The clustering was run on 5 numeric columns with `City` excluded from the feature set entirely — and it reconstructed `City` anyway.
-- Only **one** segment split reflects genuine within-city structure: the Miami / Silver / Discount-applied cohort splits into two segments along `Age` and recency.
+### 4. Model Comparison
 
-**Practical takeaway:** treat this segmentation as *"city tier, plus one age/recency-based split within a single city,"* not as seven independently discovered behavioural personas. The non-overlapping numeric bands are also a strong signal this dataset is synthetic or template-generated rather than raw transaction logs — if you're using this repo as a template for a real dataset, re-run Section 5a first and confirm it comes back clean before trusting the segment profiles.
+Three feature configurations were evaluated across **K = 2 to 10**, with the optimal K selected using the maximum silhouette score.
 
-## Other limitations
+| Model                      | Features                    | Selected K | Silhouette |
+| -------------------------- | --------------------------- | ---------: | ---------: |
+| Baseline                   | 5 numerical features        |          4 |     0.5626 |
+| Full-feature               | Numerical + categorical     |          7 |     0.8029 |
+| Behaviour-focused          | Full-feature excluding City |          8 |     0.7831 |
+| **Numerical-only — Final** | **5 numerical features**    |      **7** | **0.7139** |
 
-- **Mixed-type clustering.** The full-feature and behaviour-focused models combine one-hot-encoded categorical dummies with standardized continuous features under plain Euclidean-distance K-Means, which can let the dummy columns dominate cluster formation. [K-Prototypes](https://github.com/nicodv/kmodes) or a Gower-distance-based approach would be more defensible for genuinely mixed-type data.
-- **Small sample.** n = 350. Fine for demonstrating a methodology; too small and too clean (see above) to generalize from.
-- **Imputation.** 2 of 350 `Satisfaction Level` values were filled with the column mode — low impact given the count, but worth knowing before extending the pipeline.
+The numerical-only model was selected for the final segmentation because it provides a simpler and more interpretable feature space while avoiding direct use of categorical variables in K-Means.
 
-## Setup
+## Final Customer Segments
+
+The final model uses **K=7** and is based on the five standardised numerical features.
+
+| Segment                         | Cluster |       Size |  Age | Total Spend | Items | Rating | Days Since Last Purchase |
+| ------------------------------- | ------: | ---------: | ---: | ----------: | ----: | -----: | -----------------------: |
+| High-Value Engaged Customers    |       2 | 58 (16.6%) | 29.1 |   $1,459.77 |  20.0 |   4.81 |                     11.2 |
+| High-Value Satisfied Customers  |       5 | 59 (16.9%) | 30.7 |   $1,165.04 |  15.3 |   4.54 |                     24.6 |
+| Active Mid-Value Customers      |       1 | 59 (16.9%) | 34.1 |     $805.49 |  11.7 |   4.17 |                     15.3 |
+| At-Risk Average-Value Customers |       3 |  34 (9.7%) | 26.8 |     $703.69 |  12.8 |   4.02 |                     53.2 |
+| Low-Value At-Risk Customers     |       6 |  24 (6.9%) | 32.0 |     $671.55 |  10.0 |   3.80 |                     34.6 |
+| Low-Value Inactive Customers    |       4 | 58 (16.6%) | 42.0 |     $499.88 |   9.4 |   3.46 |                     40.5 |
+| Low-Value Neutral Customers     |       0 | 58 (16.6%) | 36.7 |     $446.89 |   7.6 |   3.19 |                     22.8 |
+
+The segment labels are descriptive summaries of the observed cluster profiles rather than independently validated customer personas.
+
+## Key Data-Quality Finding: City Confounding
+
+The clustering results require an important qualification.
+
+Although **City was excluded from the final numerical-only model**, the analysis found that several numerical variables are strongly structured by City:
+
+* `Total Spend`, `Items Purchased`, and `Average Rating` occupy **non-overlapping numeric bands across cities**.
+* `Membership Type` is a **deterministic function of City** in this dataset, with zero exceptions across all 350 records.
+* **6 of the 7 final clusters** map one-to-one onto combinations of `City`, `Membership Type`, and `Discount Applied`.
+* The remaining split occurs within the Miami / Silver / discount-applied group and is primarily associated with **Age and recency**.
+
+This means the high silhouette scores should **not** be interpreted as evidence that seven independent behavioural personas have been discovered.
+
+A more accurate interpretation is:
+
+> **The segmentation primarily reflects city-linked customer tiers, with one additional age/recency-based split within a Miami cohort.**
+
+The non-overlapping numerical ranges also suggest that the dataset may be synthetic or template-generated rather than representative of naturally collected transaction data.
+
+**Practical implication:** before applying this methodology to a real customer dataset, the City-confounding checks should be repeated to confirm that the numerical variables are not simply encoding another categorical variable.
+
+## Limitations
+
+### Mixed-type clustering
+
+The full-feature and behaviour-focused models combine one-hot-encoded categorical variables with standardised numerical variables under Euclidean-distance K-Means.
+
+For genuinely mixed-type customer data, approaches such as **K-Prototypes** or **Gower-distance-based clustering** may provide a more appropriate methodology.
+
+### Dataset size
+
+The dataset contains only **350 customers**. It is suitable for demonstrating the methodology but is too small to support broad generalisation.
+
+### Data quality
+
+The strong City-linked structure limits the extent to which the final clusters can be interpreted as independent behavioural segments.
+
+### Imputation
+
+Only two `Satisfaction Level` values were missing and were replaced using the mode. The impact is therefore limited, but the imputation should still be documented.
+
+## Technologies
+
+* Python
+* Pandas
+* NumPy
+* Scikit-learn
+* Matplotlib
+* Seaborn
+* Jupyter Notebook
+* K-Means clustering
+* StandardScaler
+* Silhouette analysis
+
+## Reproducing the Analysis
+
+Install the required packages:
 
 ```bash
 pip install pandas numpy scikit-learn matplotlib seaborn jupyter
 ```
 
-Verified working with:
+The notebook was verified to execute sequentially from **execution count 1 to 81 with no missing execution counts**.
 
-| Package | Version |
-|---|---|
-| pandas | 3.0.2 |
-| numpy | 2.4.4 |
-| scikit-learn | 1.8.0 |
-| matplotlib | 3.10.8 |
-| seaborn | 0.13.2 |
-
-(Older pandas 2.x / earlier scikit-learn versions should also work — nothing in the notebook depends on pandas 3.x-specific behavior.)
-
-## Running the notebook
+Open the notebook with:
 
 ```bash
-jupyter notebook Customer_Segmentation_corrected.ipynb
+jupyter notebook Customer_Segmentation_final.ipynb
 ```
 
-Run **Kernel → Restart & Run All**. The notebook is verified to execute top-to-bottom with zero errors and sequential execution counts (1 → 81) against the dataset in `data/`.
+Then select:
 
-## Revision notes
+**Kernel → Restart & Run All**
 
-This notebook was corrected from an earlier draft that would not execute cleanly:
+## Repository Structure
 
-- Removed two dead cells that referenced undefined variables (`numerical_columns` / `categorical_columns`) — leftovers from an earlier, discarded preprocessing approach, causing `NameError` on a clean run.
-- Fixed the behaviour-focused model's `K` selection to use the same `argmax`-on-silhouette rule as the full-feature model, instead of a hardcoded, unjustified `K=7`. (It now correctly selects `K=8`.)
-- Corrected the "At-Risk Active-Value Customers" segment label, which contradicted its own underlying statistics, to "At-Risk Average-Value Customers."
-- Added Section 5a, which tests for and discloses the City confound described above.
+```text
+customer-segmentation-analysis/
+└── Customer_Segmentation_final.ipynb
+```
+
+## Project Takeaway
+
+This project demonstrates that a strong clustering score alone is not sufficient to establish meaningful customer segments.
+
+The analysis combines **model evaluation with data-quality investigation**, showing why segmentation results should be checked for hidden relationships and confounding variables before being translated into business decisions.
